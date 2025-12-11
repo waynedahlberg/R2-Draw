@@ -9,10 +9,13 @@ import SwiftUI
 import SwiftData
 
 @main
-struct r2drawApp: App {
+struct StickerDreamApp: App {
+    // MARK: - SwiftData Container
+    // We initialize the container for both User and Sticker models.
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            User.self,
+            Sticker.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
@@ -25,7 +28,9 @@ struct r2drawApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            // We will swap this View in Module 2
+            Text("Sticker Dream - Setup Complete")
+                .font(.largeTitle)
         }
         .modelContainer(sharedModelContainer)
     }

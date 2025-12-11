@@ -10,25 +10,34 @@ import SwiftData
 
 struct MainView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Sticker.dateCreated, order: .reverse) private var allStickers: [Sticker]
-    let user: User
     
-    // Services
+    // DATA
+    let user: User
+    var onSwitchUser: (User) -> Void // Logic to change the app-level user
+    
+    @Query(sort: \User.createdAt, order: .reverse) private var allUsers: [User]
+    @Query(sort: \Sticker.dateCreated, order: .reverse) private var allStickers: [Sticker]
+    
+    // SERVICES
     @State private var speechRecognizer = SpeechRecognizer()
     private let geminiService = GeminiService()
     
-    // State
+    // STATE
     @State private var isRecording = false
     @State private var isGenerating = false
     @State private var currentImage: UIImage?
     @State private var lastPrompt: String = ""
     @State private var errorMessage: String?
     
+    // SHEETS
+    @State private var showUserSwitcher = false
+    @State private var stickerToDelete: Sticker? // Holds the sticker we want to kill
+    
     var body: some View {
         NavigationStack {
             VStack(spacing: 20) {
                 
-                // 1. The Canvas / Result Area
+                // 1. Canvas Area
                 ZStack {
                     RoundedRectangle(cornerRadius: 24)
                         .fill(Color(.secondarySystemBackground))
@@ -39,10 +48,9 @@ struct MainView: View {
                             .resizable()
                             .scaledToFit()
                             .clipShape(RoundedRectangle(cornerRadius: 24))
-                            .padding()
+                            .padding(8)
                     } else if isGenerating {
-                        ProgressView()
-                            .scaleEffect(2)
+                        ProgressView().scaleEffect(2)
                     } else {
                         VStack(spacing: 12) {
                             Image(systemName: "photo.badge.plus")
@@ -53,10 +61,10 @@ struct MainView: View {
                         }
                     }
                 }
-                .aspectRatio(1.0, contentMode: .fit)
+                .aspectRatio(2.0/3.0, contentMode: .fit)
                 .padding()
                 
-                // 2. Transcript Display
+                // 2. Transcript
                 Text(isRecording ? speechRecognizer.transcript : lastPrompt)
                     .font(.title2)
                     .multilineTextAlignment(.center)
@@ -66,9 +74,9 @@ struct MainView: View {
                 
                 Spacer()
                 
-                // 3. The Big Button
+                // 3. Record Button
                 Button {
-                    // Action handled by DragGesture below
+                    // Handled by gesture
                 } label: {
                     ZStack {
                         Circle()
@@ -85,19 +93,17 @@ struct MainView: View {
                 }
                 .simultaneousGesture(
                     DragGesture(minimumDistance: 0)
-                        .onChanged { _ in
-                            if !isRecording && !isGenerating {
-                                startRecording()
-                            }
-                        }
-                        .onEnded { _ in
-                            if isRecording {
-                                stopRecordingAndGenerate()
-                            }
-                        }
+                        .onChanged { _ in if !isRecording && !isGenerating { startRecording() } }
+                        .onEnded { _ in if isRecording { stopRecordingAndGenerate() } }
                 )
                 .disabled(isGenerating)
                 
+                Text(isRecording ? "Listening..." : "Hold to speak")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.bottom, 10)
+                
+                // 4. Gallery Strip
                 if !userStickers.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 12) {
@@ -106,47 +112,149 @@ struct MainView: View {
                                     Image(uiImage: uiImage)
                                         .resizable()
                                         .scaledToFit()
-                                        .frame(width: 80, height: 80)
+                                        .frame(width: 80, height: 120)
                                         .clipShape(RoundedRectangle(cornerRadius: 12))
                                         .overlay(
                                             RoundedRectangle(cornerRadius: 12)
                                                 .stroke(Color.gray.opacity(0.2), lineWidth: 1)
                                         )
                                         .onTapGesture {
-                                            self.currentImage = uiImage
-                                            self.lastPrompt = sticker.prompt
+                                            withAnimation {
+                                                self.currentImage = uiImage
+                                                self.lastPrompt = sticker.prompt
+                                            }
+                                        }
+                                        // MARK: - Long Press to Delete
+                                        .onLongPressGesture {
+                                            stickerToDelete = sticker
                                         }
                                 }
                             }
                         }
                         .padding(.horizontal)
                     }
-                    .frame(height: 100)
+                    .frame(height: 120)
                     .padding(.bottom)
                 }
-                
-                Text(isRecording ? "Listening..." : "Hold to speak")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.bottom, 30)
             }
             .navigationTitle("R2 Draw")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    UserAvatarView(imageData: user.profileImageData, name: user.name, size: 32)
+                    // MARK: - User Switcher Trigger
+                    Button {
+                        showUserSwitcher = true
+                    } label: {
+                        UserAvatarView(imageData: user.profileImageData, name: user.name, size: 32)
+                    }
                 }
+            }
+        }
+        // MARK: - User Switcher Sheet
+        .sheet(isPresented: $showUserSwitcher) {
+            VStack(spacing: 20) {
+                Capsule()
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(width: 40, height: 5)
+                    .padding(.top)
+                
+                Text("Switch Dreamer")
+                    .font(.headline)
+                    .padding(.bottom, 10)
+                
+                ScrollView {
+                    VStack(spacing: 16) {
+                        ForEach(allUsers) { otherUser in
+                            Button {
+                                showUserSwitcher = false
+                                // Small delay to let sheet dismiss before switching context
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                    onSwitchUser(otherUser)
+                                }
+                            } label: {
+                                HStack {
+                                    UserAvatarView(imageData: otherUser.profileImageData, name: otherUser.name, size: 50)
+                                    
+                                    Text(otherUser.name)
+                                        .font(.title3)
+                                        .bold()
+                                        .foregroundStyle(.primary)
+                                    
+                                    Spacer()
+                                    
+                                    if otherUser.id == user.id {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundStyle(.blue)
+                                    }
+                                }
+                                .padding()
+                                .background(Color(.secondarySystemBackground))
+                                .cornerRadius(16)
+                            }
+                        }
+                        
+                        // Option to add new user
+                        Button {
+                            showUserSwitcher = false
+                            onSwitchUser(User(name: "", profileImageData: nil)) // Hack: Trigger "Logged Out" state
+                        } label: {
+                            HStack {
+                                Circle()
+                                    .fill(Color(.tertiarySystemFill))
+                                    .frame(width: 50, height: 50)
+                                    .overlay(Image(systemName: "plus"))
+                                
+                                Text("Add New Dreamer")
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                            }
+                            .padding()
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.bottom, 50) // Ample vertical padding
+                }
+            }
+            .presentationDetents([.fraction(0.4), .medium]) // Dynamic height
+            .presentationDragIndicator(.visible)
+        }
+        // MARK: - Delete Confirmation
+        .confirmationDialog(
+            "Delete this sticker?",
+            isPresented: Binding(
+                get: { stickerToDelete != nil },
+                set: { if !$0 { stickerToDelete = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                if let sticker = stickerToDelete {
+                    withAnimation {
+                        // If we are looking at the one we deleted, clear the screen
+                        if currentImage == sticker.uiImage {
+                            currentImage = nil
+                            lastPrompt = ""
+                        }
+                        modelContext.delete(sticker)
+                    }
+                }
+                stickerToDelete = nil
+            }
+            Button("Cancel", role: .cancel) {
+                stickerToDelete = nil
             }
         }
     }
     
-    // MARK: - Logic
+    // Logic (Keeping existing methods...)
+    var userStickers: [Sticker] {
+        allStickers.filter { $0.creator?.id == user.id }
+    }
     
     func startRecording() {
         withAnimation {
             isRecording = true
             errorMessage = nil
-            currentImage = nil // Clear previous image while recording new one? Or keep it?
         }
         speechRecognizer.startTranscribing()
     }
@@ -157,15 +265,12 @@ struct MainView: View {
         
         let prompt = speechRecognizer.transcript
         guard !prompt.isEmpty else { return }
-        
         lastPrompt = prompt
         generateImage(prompt: prompt)
     }
     
     func generateImage(prompt: String) {
         isGenerating = true
-        
-        // FIX: Extract the name here, on the Main Actor, before the task starts.
         let watermarkName = user.name
         
         Task {
@@ -173,9 +278,6 @@ struct MainView: View {
                 let rawData = try await geminiService.generateImage(from: prompt)
                 
                 if let rawImage = UIImage(data: rawData) {
-                    
-                    // MARK: - Process Image
-                    // FIX: Pass the String 'watermarkName', not the 'user' object.
                     let finalImage = await Task.detached(priority: .userInitiated) {
                         return ImageProcessor.process(image: rawImage, watermarkText: watermarkName)
                     }.value
@@ -204,9 +306,5 @@ struct MainView: View {
     func saveSticker(prompt: String, data: Data) {
         let sticker = Sticker(prompt: prompt, imageData: data, creator: user)
         modelContext.insert(sticker)
-    }
-    
-    var userStickers: [Sticker] {
-        allStickers.filter { $0.creator?.id == user.id }
     }
 }

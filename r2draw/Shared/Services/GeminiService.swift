@@ -41,7 +41,7 @@ final class GeminiService {
             ],
             "parameters": [
                 "sampleCount": 1,
-                "aspectRatio": "1:1" // Or "3:4" if you prefer portrait
+                "aspectRatio": "3:4" // Or "3:4" if you prefer portrait
             ]
         ]
         

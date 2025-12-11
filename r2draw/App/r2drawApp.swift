@@ -9,31 +9,31 @@ import SwiftUI
 import SwiftData
 
 @main
-struct StickerDreamApp: App {
-    // MARK: - SwiftData Container
-    // We initialize the container for both User and Sticker models.
+struct R2DrawApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([User.self, Sticker.self])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
-        } catch {
-            fatalError("Could not create ModelContainer: \(error)")
-        }
+        } catch { fatalError("Could not create ModelContainer: \(error)") }
     }()
-    
+
     @State private var currentUser: User?
 
     var body: some Scene {
         WindowGroup {
             if let user = currentUser {
-                // MARK: - Main app interface
-                // Temporary: way to log out and test the flow
-                MainView(user: user)
-                    .transition(.opacity)
+                // MARK: - Pass the switcher logic here
+                MainView(user: user) { selectedUser in
+                    // If name is empty, it means "Add New" (hack from Step 1)
+                    if selectedUser.name.isEmpty {
+                        currentUser = nil // Go back to onboarding
+                    } else {
+                        currentUser = selectedUser // Switch user
+                    }
+                }
+                .transition(.opacity)
             } else {
-                // MARK: - Onboarding
                 OnboardingView { selectedUser in
                     withAnimation {
                         currentUser = selectedUser

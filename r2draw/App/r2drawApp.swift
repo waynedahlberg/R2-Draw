@@ -30,15 +30,8 @@ struct StickerDreamApp: App {
             if let user = currentUser {
                 // MARK: - Main app interface
                 // Temporary: way to log out and test the flow
-                VStack {
-                    Text("Hello, \(user.name)!")
-                        .font(.largeTitle)
-                    
-                    Button("Switch User") {
-                        currentUser = nil
-                    }
-                    .buttonStyle(.bordered)
-                }
+                MainView(user: user)
+                    .transition(.opacity)
             } else {
                 // MARK: - Onboarding
                 OnboardingView { selectedUser in

@@ -16,8 +16,7 @@ enum GeminiError: Error {
 
 final class GeminiService {
     // We use the Imagen 3 endpoint
-    private let endpoint = "https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict"
-    
+    private let endpoint = "https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-fast-generate-001:predict"
     func generateImage(from prompt: String) async throws -> Data {
         guard Secrets.isValid else {
             throw GeminiError.apiError("Missing API Key in Secrets.swift")

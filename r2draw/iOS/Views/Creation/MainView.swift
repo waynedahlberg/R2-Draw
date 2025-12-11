@@ -10,6 +10,7 @@ import SwiftData
 
 struct MainView: View {
     @Environment(\.modelContext) private var modelContext
+    @Query(sort: \Sticker.dateCreated, order: .reverse) private var allStickers: [Sticker]
     let user: User
     
     // Services
@@ -97,6 +98,33 @@ struct MainView: View {
                 )
                 .disabled(isGenerating)
                 
+                if !userStickers.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            ForEach(userStickers) { sticker in
+                                if let uiImage = sticker.uiImage {
+                                    Image(uiImage: uiImage)
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 80, height: 80)
+                                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 12)
+                                                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                                        )
+                                        .onTapGesture {
+                                            self.currentImage = uiImage
+                                            self.lastPrompt = sticker.prompt
+                                        }
+                                }
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+                    .frame(height: 100)
+                    .padding(.bottom)
+                }
+                
                 Text(isRecording ? "Listening..." : "Hold to speak")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -137,14 +165,29 @@ struct MainView: View {
     func generateImage(prompt: String) {
         isGenerating = true
         
+        // FIX: Extract the name here, on the Main Actor, before the task starts.
+        let watermarkName = user.name
+        
         Task {
             do {
-                let imageData = try await geminiService.generateImage(from: prompt)
+                let rawData = try await geminiService.generateImage(from: prompt)
                 
-                if let uiImage = UIImage(data: imageData) {
+                if let rawImage = UIImage(data: rawData) {
+                    
+                    // MARK: - Process Image
+                    // FIX: Pass the String 'watermarkName', not the 'user' object.
+                    let finalImage = await Task.detached(priority: .userInitiated) {
+                        return ImageProcessor.process(image: rawImage, watermarkText: watermarkName)
+                    }.value
+                    
+                    guard let processedImage = finalImage,
+                          let processedData = processedImage.pngData() else {
+                        throw GeminiError.noData
+                    }
+                    
                     await MainActor.run {
-                        self.currentImage = uiImage
-                        self.saveSticker(prompt: prompt, data: imageData)
+                        self.currentImage = processedImage
+                        self.saveSticker(prompt: prompt, data: processedData)
                         self.isGenerating = false
                     }
                 }
@@ -161,5 +204,9 @@ struct MainView: View {
     func saveSticker(prompt: String, data: Data) {
         let sticker = Sticker(prompt: prompt, imageData: data, creator: user)
         modelContext.insert(sticker)
+    }
+    
+    var userStickers: [Sticker] {
+        allStickers.filter { $0.creator?.id == user.id }
     }
 }

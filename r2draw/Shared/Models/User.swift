@@ -6,8 +6,8 @@
 //
 
 import Foundation
-import SwiftData
 import SwiftUI
+import SwiftData
 
 // MARK: - User Model
 @Model

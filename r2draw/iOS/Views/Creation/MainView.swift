@@ -11,47 +11,76 @@ import SwiftData
 struct MainView: View {
     @Environment(\.modelContext) private var modelContext
     
-    // DATA
+    // MARK: - Data & Config
     let user: User
-    var onSwitchUser: (User) -> Void // Logic to change the app-level user
+    var onSwitchUser: (User) -> Void
     
     @Query(sort: \User.createdAt, order: .reverse) private var allUsers: [User]
     @Query(sort: \Sticker.dateCreated, order: .reverse) private var allStickers: [Sticker]
     
-    // SERVICES
+    // MARK: - Services
     @State private var speechRecognizer = SpeechRecognizer()
+    @State private var printerService = PrinterService()
     private let geminiService = GeminiService()
     
-    // STATE
+    // MARK: - Local State
     @State private var isRecording = false
     @State private var isGenerating = false
     @State private var currentImage: UIImage?
     @State private var lastPrompt: String = ""
     @State private var errorMessage: String?
     
-    // SHEETS
+    // Sheets & Alerts
     @State private var showUserSwitcher = false
-    @State private var stickerToDelete: Sticker? // Holds the sticker we want to kill
+    @State private var stickerToDelete: Sticker?
     
     var body: some View {
         NavigationStack {
             VStack(spacing: 20) {
                 
-                // 1. Canvas Area
-                ZStack {
+                // MARK: 1. Canvas / Preview Area
+                ZStack(alignment: .bottomTrailing) {
+                    
+                    // Background Card
                     RoundedRectangle(cornerRadius: 24)
                         .fill(Color(.secondarySystemBackground))
                         .shadow(color: .black.opacity(0.05), radius: 10)
                     
+                    // State: Image Loaded
                     if let currentImage {
                         Image(uiImage: currentImage)
                             .resizable()
                             .scaledToFit()
                             .clipShape(RoundedRectangle(cornerRadius: 24))
-                            .padding(8)
-                    } else if isGenerating {
-                        ProgressView().scaleEffect(2)
-                    } else {
+                            .padding(8) // Inset to show the "card" edge
+                        
+                        // Floating Print Button
+                        Button {
+                            printerService.printImage(currentImage)
+                        } label: {
+                            Image(systemName: "printer.fill")
+                                .font(.title)
+                                .foregroundStyle(.white)
+                                .frame(width: 60, height: 60)
+                                .background(Color.blue)
+                                .clipShape(Circle())
+                                .shadow(radius: 4, y: 2)
+                        }
+                        .padding(20)
+                    }
+                    // State: Loading
+                    else if isGenerating {
+                        VStack {
+                            ProgressView().scaleEffect(2)
+                            Text("Dreaming...")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .padding(.top)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                    // State: Empty / Placeholder
+                    else {
                         VStack(spacing: 12) {
                             Image(systemName: "photo.badge.plus")
                                 .font(.system(size: 50))
@@ -59,42 +88,67 @@ struct MainView: View {
                             Text("Press the mic to dream!")
                                 .foregroundStyle(.secondary)
                         }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                 }
+                // Force 2:3 Aspect Ratio (4x6 Sticker format)
                 .aspectRatio(2.0/3.0, contentMode: .fit)
-                .padding()
+                .padding(.horizontal)
+                .padding(.top)
                 
-                // 2. Transcript
+                // MARK: 2. Transcript Display
                 Text(isRecording ? speechRecognizer.transcript : lastPrompt)
                     .font(.title2)
                     .multilineTextAlignment(.center)
+                    .lineLimit(3)
                     .frame(height: 80)
                     .padding(.horizontal)
+                    // Smooth text transition
                     .animation(.default, value: speechRecognizer.transcript)
                 
                 Spacer()
                 
-                // 3. Record Button
+                // MARK: 3. The Big Mic Button
                 Button {
-                    // Handled by gesture
+                    // Action handled by DragGesture below to allow "Hold to Record"
                 } label: {
                     ZStack {
+                        // Pulse Effect Background
+                        if isRecording {
+                            Circle()
+                                .fill(Color.red.opacity(0.3))
+                                .frame(width: 100, height: 100)
+                                .scaleEffect(1.2)
+                                .transition(.opacity)
+                        }
+                        
+                        // Main Button Circle
                         Circle()
                             .fill(isRecording ? Color.red : Color.blue)
                             .frame(width: 80, height: 80)
-                            .shadow(radius: 4)
+                            .shadow(radius: 4, y: 2)
                         
+                        // Icon
                         Image(systemName: isRecording ? "waveform" : "mic.fill")
                             .font(.largeTitle)
                             .foregroundStyle(.white)
                             .scaleEffect(isRecording ? 1.2 : 1.0)
+                            // Spring animation for bouncy feel
                             .animation(.spring(response: 0.3, dampingFraction: 0.5), value: isRecording)
                     }
                 }
                 .simultaneousGesture(
                     DragGesture(minimumDistance: 0)
-                        .onChanged { _ in if !isRecording && !isGenerating { startRecording() } }
-                        .onEnded { _ in if isRecording { stopRecordingAndGenerate() } }
+                        .onChanged { _ in
+                            if !isRecording && !isGenerating {
+                                startRecording()
+                            }
+                        }
+                        .onEnded { _ in
+                            if isRecording {
+                                stopRecordingAndGenerate()
+                            }
+                        }
                 )
                 .disabled(isGenerating)
                 
@@ -103,7 +157,7 @@ struct MainView: View {
                     .foregroundStyle(.secondary)
                     .padding(.bottom, 10)
                 
-                // 4. Gallery Strip
+                // MARK: 4. Recent Stickers Gallery
                 if !userStickers.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 12) {
@@ -112,6 +166,7 @@ struct MainView: View {
                                     Image(uiImage: uiImage)
                                         .resizable()
                                         .scaledToFit()
+                                        // 2:3 Thumbnail Ratio (80w x 120h)
                                         .frame(width: 80, height: 120)
                                         .clipShape(RoundedRectangle(cornerRadius: 12))
                                         .overlay(
@@ -119,13 +174,16 @@ struct MainView: View {
                                                 .stroke(Color.gray.opacity(0.2), lineWidth: 1)
                                         )
                                         .onTapGesture {
+                                            // Load into main view
                                             withAnimation {
                                                 self.currentImage = uiImage
                                                 self.lastPrompt = sticker.prompt
                                             }
                                         }
-                                        // MARK: - Long Press to Delete
                                         .onLongPressGesture {
+                                            // Trigger delete dialog
+                                            let generator = UIImpactFeedbackGenerator(style: .medium)
+                                            generator.impactOccurred()
                                             stickerToDelete = sticker
                                         }
                                 }
@@ -133,7 +191,7 @@ struct MainView: View {
                         }
                         .padding(.horizontal)
                     }
-                    .frame(height: 120)
+                    .frame(height: 130)
                     .padding(.bottom)
                 }
             }
@@ -141,7 +199,6 @@ struct MainView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    // MARK: - User Switcher Trigger
                     Button {
                         showUserSwitcher = true
                     } label: {
@@ -149,6 +206,11 @@ struct MainView: View {
                     }
                 }
             }
+        }
+        // MARK: - Lifecycle
+        .onAppear {
+            // Start scanning for the printer immediately
+            printerService.startScanning()
         }
         // MARK: - User Switcher Sheet
         .sheet(isPresented: $showUserSwitcher) {
@@ -167,7 +229,7 @@ struct MainView: View {
                         ForEach(allUsers) { otherUser in
                             Button {
                                 showUserSwitcher = false
-                                // Small delay to let sheet dismiss before switching context
+                                // Small delay to allow sheet to dismiss smoothly
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                                     onSwitchUser(otherUser)
                                 }
@@ -193,10 +255,11 @@ struct MainView: View {
                             }
                         }
                         
-                        // Option to add new user
+                        // "Add New" Button
                         Button {
                             showUserSwitcher = false
-                            onSwitchUser(User(name: "", profileImageData: nil)) // Hack: Trigger "Logged Out" state
+                            // Passing an empty user acts as a signal to the App to show Onboarding
+                            onSwitchUser(User(name: "", profileImageData: nil))
                         } label: {
                             HStack {
                                 Circle()
@@ -212,13 +275,13 @@ struct MainView: View {
                         }
                     }
                     .padding(.horizontal)
-                    .padding(.bottom, 50) // Ample vertical padding
+                    .padding(.bottom, 50)
                 }
             }
-            .presentationDetents([.fraction(0.4), .medium]) // Dynamic height
+            .presentationDetents([.fraction(0.4), .medium])
             .presentationDragIndicator(.visible)
         }
-        // MARK: - Delete Confirmation
+        // MARK: - Delete Dialog
         .confirmationDialog(
             "Delete this sticker?",
             isPresented: Binding(
@@ -230,7 +293,7 @@ struct MainView: View {
             Button("Delete", role: .destructive) {
                 if let sticker = stickerToDelete {
                     withAnimation {
-                        // If we are looking at the one we deleted, clear the screen
+                        // Clear canvas if deleting the currently viewed image
                         if currentImage == sticker.uiImage {
                             currentImage = nil
                             lastPrompt = ""
@@ -246,7 +309,9 @@ struct MainView: View {
         }
     }
     
-    // Logic (Keeping existing methods...)
+    // MARK: - Helper Logic
+    
+    /// Filters the main query to show only THIS user's stickers
     var userStickers: [Sticker] {
         allStickers.filter { $0.creator?.id == user.id }
     }
@@ -265,12 +330,15 @@ struct MainView: View {
         
         let prompt = speechRecognizer.transcript
         guard !prompt.isEmpty else { return }
+        
         lastPrompt = prompt
         generateImage(prompt: prompt)
     }
     
     func generateImage(prompt: String) {
         isGenerating = true
+        
+        // Capture simple string for thread safety
         let watermarkName = user.name
         
         Task {
@@ -278,6 +346,8 @@ struct MainView: View {
                 let rawData = try await geminiService.generateImage(from: prompt)
                 
                 if let rawImage = UIImage(data: rawData) {
+                    
+                    // Heavy processing on background thread
                     let finalImage = await Task.detached(priority: .userInitiated) {
                         return ImageProcessor.process(image: rawImage, watermarkText: watermarkName)
                     }.value
@@ -287,6 +357,7 @@ struct MainView: View {
                         throw GeminiError.noData
                     }
                     
+                    // Update UI on Main Actor
                     await MainActor.run {
                         self.currentImage = processedImage
                         self.saveSticker(prompt: prompt, data: processedData)

@@ -29,8 +29,7 @@ final class GeminiService {
         // 1. Engineering the Prompt for Thermal Printing
         // We wrap the kid's prompt in specific instructions for line art.
         let fullPrompt = """
-        A clean, high-contrast black and white coloring book page line art of: \(prompt).
-        White background. Thick black outlines. No shading. No greyscale. Simple style suitable for children.
+        A pristine, high-resolution black and white vector-style line art illustration designed specifically as a children's coloring book page. The image features \(prompt). The artistic style relies exclusively on clean, crisp black ink lines against a pure white background with absolutely no shading, cross-hatching, grayscale, stippling, or gradients. Utilize a strict hierarchy of line weights to create depth and visual clarity: employ thick, bold, uniform contours to define the outer edges of primary foreground characters and main objects, and transition to medium and fine line weights for internal facial details, clothing textures, and distant background scenery. The lines must be smooth, confident, and continuous (closed paths) to facilitate easy coloring. The overall aesthetic should be polished, professional, and commercial, resembling high-quality licensed merchandise illustration. Aspect ratio is portrait, 3:4 ratio. 
         """
         
         // 2. JSON Body

@@ -20,6 +20,7 @@ final class SpeechRecognizer {
     
     var state: RecognizerState = .idle
     var transcript: String = ""
+    var isReady: Bool = false
     
     private let audioEngine = AVAudioEngine()
     private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
@@ -27,16 +28,31 @@ final class SpeechRecognizer {
     private var recognitionTask: SFSpeechRecognitionTask?
     
     init() {
-        requestAuthorization()
+        // Initialization is now non-blocking.
+        // We call prepare() from the App lifecycle to handle permissions.
     }
     
-    private func requestAuthorization() {
-        SFSpeechRecognizer.requestAuthorization { status in
-            // Handle status if needed (e.g., show alert if denied)
+    /// Requests permission and prepares the recognizer without blocking the main thread during init
+    func prepare() {
+        SFSpeechRecognizer.requestAuthorization { [weak self] status in
+            DispatchQueue.main.async {
+                switch status {
+                case .authorized:
+                    self?.isReady = true
+                default:
+                    self?.state = .error("Permission denied")
+                    self?.isReady = false
+                }
+            }
         }
     }
     
     func startTranscribing() {
+        guard isReady else {
+            state = .error("Speech recognition not ready")
+            return
+        }
+        
         guard !audioEngine.isRunning else { return }
         
         // Reset
@@ -58,7 +74,6 @@ final class SpeechRecognizer {
         guard let request = request else { return }
         request.shouldReportPartialResults = true
         
-        // Check input node
         let inputNode = audioEngine.inputNode
         
         // Start Task

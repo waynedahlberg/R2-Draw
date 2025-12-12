@@ -7,7 +7,6 @@
 
 import SwiftUI
 import PhotosUI
-import SwiftData
 
 struct CreateProfileView: View {
     @Environment(\.modelContext) private var modelContext
@@ -15,22 +14,24 @@ struct CreateProfileView: View {
     
     @State private var name: String = ""
     @State private var selectedItem: PhotosPickerItem?
+    
+    // OPTIMIZATION: Hold the decoded image and the raw data separately
+    @State private var selectedImage: UIImage?
     @State private var selectedImageData: Data?
     
     var body: some View {
         NavigationStack {
             VStack(spacing: 30) {
                 
-                // Header
                 Text("Who is this dreamer?")
                     .font(.largeTitle)
                     .bold()
                     .multilineTextAlignment(.center)
                     .padding(.top)
                 
-                // Photo Picker
                 VStack {
-                    UserAvatarView(imageData: selectedImageData, name: name.isEmpty ? "?" : name, size: 120)
+                    // PASS THE DECODED IMAGE DIRECTLY
+                    UserAvatarView(uiImage: selectedImage, name: name.isEmpty ? "?" : name, size: 120)
                     
                     PhotosPicker(selection: $selectedItem, matching: .images) {
                         Label("Choose Photo", systemImage: "photo")
@@ -42,7 +43,6 @@ struct CreateProfileView: View {
                     .padding(.top, 10)
                 }
                 
-                // Name Entry
                 TextField("Type name here...", text: $name)
                     .font(.title2)
                     .multilineTextAlignment(.center)
@@ -52,7 +52,6 @@ struct CreateProfileView: View {
                 
                 Spacer()
                 
-                // Save Button
                 Button {
                     createUser()
                 } label: {
@@ -75,18 +74,23 @@ struct CreateProfileView: View {
                     Button("Cancel") { dismiss() }
                 }
             }
-            // Logic to load the image data when picker selection changes
+            // MARK: - Optimized Image Loading
             .onChange(of: selectedItem) {
                 Task {
-                    if let data = try? await selectedItem?.loadTransferable(type: Data.self) {
-                        selectedImageData = data
+                    if let data = try? await selectedItem?.loadTransferable(type: Data.self),
+                       let uiImage = UIImage(data: data) {
+                        
+                        // Decode ONCE here, not every render cycle
+                        await MainActor.run {
+                            self.selectedImageData = data
+                            self.selectedImage = uiImage
+                        }
                     }
                 }
             }
         }
     }
     
-    // Validation: Needs a name AND a photo (per your requirement)
     var canSave: Bool {
         !name.isEmpty && selectedImageData != nil
     }

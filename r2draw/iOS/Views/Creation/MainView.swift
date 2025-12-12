@@ -18,9 +18,11 @@ struct MainView: View {
     @Query(sort: \User.createdAt, order: .reverse) private var allUsers: [User]
     @Query(sort: \Sticker.dateCreated, order: .reverse) private var allStickers: [Sticker]
     
-    // MARK: - Services
-    @State private var speechRecognizer = SpeechRecognizer()
-    @State private var printerService = PrinterService()
+    // MARK: - Services (Injected)
+    // We observe these objects which are passed down from the App
+    @Bindable var speechRecognizer: SpeechRecognizer
+    @Bindable var printerService: PrinterService
+    
     private let geminiService = GeminiService()
     
     // MARK: - Local State
@@ -124,8 +126,9 @@ struct MainView: View {
                         }
                         
                         // Main Button Circle
+                        // Gray out if not ready (warming up)
                         Circle()
-                            .fill(isRecording ? Color.red : Color.blue)
+                            .fill(isRecording ? Color.red : (speechRecognizer.isReady ? Color.blue : Color.gray))
                             .frame(width: 80, height: 80)
                             .shadow(radius: 4, y: 2)
                         
@@ -134,13 +137,14 @@ struct MainView: View {
                             .font(.largeTitle)
                             .foregroundStyle(.white)
                             .scaleEffect(isRecording ? 1.2 : 1.0)
+                            .opacity(speechRecognizer.isReady ? 1.0 : 0.5)
                             .animation(.spring(response: 0.3, dampingFraction: 0.5), value: isRecording)
                     }
                 }
                 .simultaneousGesture(
                     DragGesture(minimumDistance: 0)
                         .onChanged { _ in
-                            if !isRecording && !isGenerating {
+                            if !isRecording && !isGenerating && speechRecognizer.isReady {
                                 startRecording()
                             }
                         }
@@ -150,9 +154,11 @@ struct MainView: View {
                             }
                         }
                 )
-                .disabled(isGenerating)
+                // Disable if generating OR if services aren't ready
+                .disabled(isGenerating || !speechRecognizer.isReady)
                 
-                Text(isRecording ? "Listening..." : "Hold to speak")
+                // Status Text
+                Text(statusText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.bottom, 10)
@@ -196,9 +202,9 @@ struct MainView: View {
             .navigationTitle("R2 Draw")
             .navigationBarTitleDisplayMode(.inline)
             
-            // MARK: - Toolbar Items
+            // MARK: - Toolbar
             .toolbar {
-                // Leading: User Profile Switcher
+                // Leading: User Switcher
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
                         showUserSwitcher = true
@@ -207,10 +213,9 @@ struct MainView: View {
                     }
                 }
                 
-                // Trailing Group: Font Picker + Printer Status
+                // Trailing: Font & Printer
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 16) {
-                        // Font Picker
                         Button {
                             showFontPicker = true
                         } label: {
@@ -223,7 +228,6 @@ struct MainView: View {
                                 .clipShape(Circle())
                         }
                         
-                        // Printer Status
                         Button {
                             showPrinterSheet = true
                         } label: {
@@ -244,6 +248,7 @@ struct MainView: View {
         }
         // MARK: - Lifecycle
         .onAppear {
+            // Service is already warm from App level, but we ensure scanning is active if needed
             printerService.startScanning()
         }
         // MARK: - Sheets
@@ -285,7 +290,6 @@ struct MainView: View {
     
     // MARK: - Helper Views & Logic
     
-    // User Switcher Content (Extracted to keep body clean)
     var userSwitcherSheet: some View {
         VStack(spacing: 20) {
             Capsule()
@@ -348,11 +352,16 @@ struct MainView: View {
         .presentationDragIndicator(.visible)
     }
     
-    // Printer UI Helpers
+    var statusText: String {
+        if isRecording { return "Listening..." }
+        if !speechRecognizer.isReady { return "Warming up..." }
+        return "Hold to speak"
+    }
+    
     var printerIcon: String {
         switch printerService.state {
         case .connected: return "printer.fill"
-        case .bluetoothOff: return "antenna.radiowaves.left.and.right.slash"
+        case .bluetoothOff: return "bluetooth.slash"
         case .error: return "exclamationmark.triangle.fill"
         default: return "printer"
         }
@@ -366,7 +375,6 @@ struct MainView: View {
         }
     }
     
-    // Logic Helpers
     var userStickers: [Sticker] {
         allStickers.filter { $0.creator?.id == user.id }
     }
@@ -392,8 +400,6 @@ struct MainView: View {
     
     func generateImage(prompt: String) {
         isGenerating = true
-        
-        // Capture simple strings for thread safety (Swift 6)
         let watermarkName = user.name
         let fontName = user.fontName
         
@@ -403,7 +409,6 @@ struct MainView: View {
                 
                 if let rawImage = UIImage(data: rawData) {
                     
-                    // Heavy processing on background thread
                     let finalImage = await Task.detached(priority: .userInitiated) {
                         return ImageProcessor.process(image: rawImage, watermarkText: watermarkName, fontName: fontName)
                     }.value
@@ -413,7 +418,6 @@ struct MainView: View {
                         throw GeminiError.noData
                     }
                     
-                    // Update UI on Main Actor
                     await MainActor.run {
                         self.currentImage = processedImage
                         self.saveSticker(prompt: prompt, data: processedData)

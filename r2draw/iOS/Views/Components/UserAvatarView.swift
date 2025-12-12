@@ -7,23 +7,41 @@
 
 import SwiftUI
 
-struct UserAvatarView : View {
-    let imageData: Data?
+struct UserAvatarView: View {
+    // CHANGE: Accept UIImage directly (already decoded)
+    let uiImage: UIImage?
     let name: String
     let size: CGFloat
     
+    // Convenience init for raw data (only used in lists where it doesn't change often)
+    init(imageData: Data?, name: String, size: CGFloat) {
+        if let data = imageData {
+            self.uiImage = UIImage(data: data)
+        } else {
+            self.uiImage = nil
+        }
+        self.name = name
+        self.size = size
+    }
+    
+    // Convenience init for when we already have the image (Optimized)
+    init(uiImage: UIImage?, name: String, size: CGFloat) {
+        self.uiImage = uiImage
+        self.name = name
+        self.size = size
+    }
+    
     var body: some View {
         ZStack {
-            if let imageData, let uiImage = UIImage(data: imageData) {
+            if let uiImage {
                 Image(uiImage: uiImage)
                     .resizable()
-                    .scaledToFit()
+                    .scaledToFill()
                     .frame(width: size, height: size)
                     .clipShape(Circle())
             } else {
-                // Fallback for when they haven't picked a photo yet
                 Circle()
-                    .fill(Color.blue.gradient)
+                    .fill(Color.orange.gradient)
                     .frame(width: size, height: size)
                 
                 Text(name.prefix(1).uppercased())
@@ -31,15 +49,10 @@ struct UserAvatarView : View {
                     .foregroundStyle(.white)
             }
             
-            // Optional: Add a ring border
             Circle()
                 .strokeBorder(.white, lineWidth: size * 0.05)
                 .frame(width: size, height: size)
                 .shadow(radius: 2)
         }
     }
-}
-
-#Preview {
-    UserAvatarView(imageData: nil, name: "Denny", size: 100)
 }

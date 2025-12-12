@@ -10,6 +10,11 @@ import SwiftData
 
 @main
 struct R2DrawApp: App {
+    // MARK: - App-Level State (Singletons for this app instance)
+    // These initialize ONCE and stay alive for the session.
+    @State private var speechRecognizer = SpeechRecognizer()
+    @State private var printerService = PrinterService()
+    
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([User.self, Sticker.self])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
@@ -22,25 +27,42 @@ struct R2DrawApp: App {
 
     var body: some Scene {
         WindowGroup {
-            if let user = currentUser {
-                // MARK: - Pass the switcher logic here
-                MainView(user: user) { selectedUser in
-                    // If name is empty, it means "Add New" (hack from Step 1)
-                    if selectedUser.name.isEmpty {
-                        currentUser = nil // Go back to onboarding
-                    } else {
-                        currentUser = selectedUser // Switch user
-                    }
-                }
-                .transition(.opacity)
-            } else {
-                OnboardingView { selectedUser in
-                    withAnimation {
-                        currentUser = selectedUser
+            Group {
+                if let user = currentUser {
+                    // Inject the pre-warmed services
+                    MainView(
+                        user: user,
+                        onSwitchUser: { handleUserSwitch($0) },
+                        speechRecognizer: speechRecognizer,
+                        printerService: printerService
+                    )
+                    .transition(.opacity)
+                } else {
+                    OnboardingView { selectedUser in
+                        withAnimation {
+                            currentUser = selectedUser
+                        }
                     }
                 }
             }
+            // MARK: - App Warmup
+            .task {
+                // Background warmup when app launches
+                speechRecognizer.prepare()
+                
+                // Optional: Start bluetooth scanning immediately
+                // printerService.startScanning()
+            }
         }
         .modelContainer(sharedModelContainer)
+    }
+    
+    func handleUserSwitch(_ selectedUser: User) {
+        if selectedUser.name.isEmpty {
+            // Signal to go back to Onboarding/Creation
+            currentUser = nil
+        } else {
+            currentUser = selectedUser
+        }
     }
 }

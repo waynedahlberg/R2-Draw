@@ -12,7 +12,6 @@ import CoreImage.CIFilterBuiltins
 
 struct ImageProcessor {
     
-    /// Main processing function: Watermark -> Resize -> B&W Conversion
     static func process(image: UIImage, watermarkText: String, fontName: String) -> UIImage? {
         
         // 1. Create a 2:3 Canvas (4x6 format)
@@ -27,29 +26,33 @@ struct ImageProcessor {
             UIColor.white.setFill()
             context.fill(CGRect(origin: .zero, size: canvasSize))
             
-            // B. Place the Gemini Image
-            let artWidth = canvasWidth * 0.9
-            let artHeight = artWidth * (4.0/3.0)
+            // B. Place the Gemini Image (ASPECT FILL)
+            // We want to fill the HEIGHT (1800).
+            // Since the source is 3:4, if height is 1800, width becomes 1350.
+            // Our canvas is only 1200 wide, so we center it (-75 x offset).
+            
+            let targetHeight = canvasHeight
+            let targetWidth = targetHeight * (3.0/4.0) // Maintain 3:4 aspect ratio of source
+            
+            // Center the image horizontally
+            let xOffset = (canvasWidth - targetWidth) / 2
             
             let artRect = CGRect(
-                x: (canvasWidth - artWidth) / 2,
-                y: canvasWidth * 0.05,
-                width: artWidth,
-                height: artHeight
+                x: xOffset,
+                y: 0, // Start at the very top
+                width: targetWidth,
+                height: targetHeight
             )
             
             image.draw(in: artRect)
             
-            // C. Border REMOVED (Intentionally left blank)
+            // C. Border REMOVED
             
-            // D. Add Watermark
-            // Scale font down significantly (3% of height)
+            // D. Add Watermark (Bottom Right, subtle)
             let fontSize = canvasHeight * 0.03
             
-            // LOGIC: Try to create the custom font, fall back to System if it fails
             let font: UIFont
             if fontName == "SF Pro Rounded" {
-                // Special handling for our "Default" look
                 if let descriptor = UIFont.systemFont(ofSize: fontSize, weight: .bold).fontDescriptor.withDesign(.rounded) {
                     font = UIFont(descriptor: descriptor, size: fontSize)
                 } else {
@@ -58,15 +61,16 @@ struct ImageProcessor {
             } else if let customFont = UIFont(name: fontName, size: fontSize) {
                 font = customFont
             } else {
-                // Fallback if custom font filename is wrong
-                print("⚠️ Could not load font: \(fontName), using system.")
                 font = UIFont.systemFont(ofSize: fontSize, weight: .bold)
             }
             
+            // Add a white stroke around text to ensure readability if it overlaps art
             let attributes: [NSAttributedString.Key: Any] = [
                 .font: font,
                 .foregroundColor: UIColor.black,
-                .kern: 2.0 // Letter spacing
+                .strokeColor: UIColor.white,
+                .strokeWidth: -3.0, // Negative for stroke AND fill
+                .kern: 2.0
             ]
             
             let attributedString = NSAttributedString(string: watermarkText.uppercased(), attributes: attributes)
@@ -89,7 +93,7 @@ struct ImageProcessor {
         return applyHighContrast(to: compositedImage)
     }
     
-    // MARK: - B&W Filter
+    // MARK: - B&W Filter (Unchanged)
     private static func applyHighContrast(to inputImage: UIImage) -> UIImage? {
         guard let ciImage = CIImage(image: inputImage) else { return nil }
         let context = CIContext()

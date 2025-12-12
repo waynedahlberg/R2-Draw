@@ -352,7 +352,7 @@ struct MainView: View {
     var printerIcon: String {
         switch printerService.state {
         case .connected: return "printer.fill"
-        case .bluetoothOff: return "bluetooth.slash"
+        case .bluetoothOff: return "antenna.radiowaves.left.and.right.slash"
         case .error: return "exclamationmark.triangle.fill"
         default: return "printer"
         }

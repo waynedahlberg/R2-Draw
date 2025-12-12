@@ -29,8 +29,16 @@ final class GeminiService {
         // 1. Engineering the Prompt for Thermal Printing
         // We wrap the kid's prompt in specific instructions for line art.
         let fullPrompt = """
-        A pristine, high-resolution black and white vector-style line art illustration designed specifically as a children's coloring book page. The image features \(prompt). The artistic style relies exclusively on clean, crisp black ink lines against a pure white background with absolutely no shading, cross-hatching, grayscale, stippling, or gradients. Utilize a strict hierarchy of line weights to create depth and visual clarity: employ thick, bold, uniform contours to define the outer edges of primary foreground characters and main objects, and transition to medium and fine line weights for internal facial details, clothing textures, and distant background scenery. The lines must be smooth, confident, and continuous (closed paths) to facilitate easy coloring. The overall aesthetic should be polished, professional, and commercial, resembling high-quality licensed merchandise illustration. Aspect ratio is portrait, 3:4 ratio. 
-        """
+                A full-bleed, edge-to-edge black and white line art illustration for a coloring book.
+                The image features: \(prompt), simple children's coloring page line art, thick bold contour lines for main subject, low detail background with large open spaces, minimalist design, easy to color, distinct and chunky shapes. High contrast black ink on white paper. No tiny details, no hatching, no shading, no greyscale, clean vector style.
+                
+                CRITICAL COMPOSITION RULES:
+                1. NO BORDERS: Do not draw any square frames, margins, or borders around the image. The artwork must extend all the way to the edges of the canvas.
+                2. DETAILED BACKGROUND: Do not leave the background empty. Fill the entire scene with intricate, interesting environmental details suitable for coloring (e.g., trees, clouds, patterns, buildings, stars, textures).
+                3. STYLE: Clean, crisp, uniform black lines on a white background. No shading, no greyscale, no sketchiness.
+                
+                The image should be highly detailed and immersive, giving the child many small shapes and textures to color in every part of the page.
+                """
         
         // 2. JSON Body
         // Google Imagen API structure

@@ -1,1 +1,7 @@
+
+# Ignore custom fonts
+*.ttf
+*.otf
+
+# API secrets file
 Secrets.swift

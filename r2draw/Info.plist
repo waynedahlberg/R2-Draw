@@ -12,5 +12,13 @@
 	<string>We use speech recognition to turn your voice into your creations.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>We need access to save your creations to the Photos app.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Connect to Thermal Printer</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>JWCo.Marker-Regular.otf</string>
+		<string>PerfectlyNineties-Regular.otf</string>
+		<string>Sacul.otf</string>
+	</array>
 </dict>
 </plist>

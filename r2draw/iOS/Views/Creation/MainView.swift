@@ -32,6 +32,8 @@ struct MainView: View {
     
     // Sheets & Alerts
     @State private var showUserSwitcher = false
+    @State private var showPrinterSheet = false
+    @State private var showFontPicker = false
     @State private var stickerToDelete: Sticker?
     
     var body: some View {
@@ -103,14 +105,13 @@ struct MainView: View {
                     .lineLimit(3)
                     .frame(height: 80)
                     .padding(.horizontal)
-                    // Smooth text transition
                     .animation(.default, value: speechRecognizer.transcript)
                 
                 Spacer()
                 
                 // MARK: 3. The Big Mic Button
                 Button {
-                    // Action handled by DragGesture below to allow "Hold to Record"
+                    // Action handled by DragGesture below
                 } label: {
                     ZStack {
                         // Pulse Effect Background
@@ -133,7 +134,6 @@ struct MainView: View {
                             .font(.largeTitle)
                             .foregroundStyle(.white)
                             .scaleEffect(isRecording ? 1.2 : 1.0)
-                            // Spring animation for bouncy feel
                             .animation(.spring(response: 0.3, dampingFraction: 0.5), value: isRecording)
                     }
                 }
@@ -174,14 +174,12 @@ struct MainView: View {
                                                 .stroke(Color.gray.opacity(0.2), lineWidth: 1)
                                         )
                                         .onTapGesture {
-                                            // Load into main view
                                             withAnimation {
                                                 self.currentImage = uiImage
                                                 self.lastPrompt = sticker.prompt
                                             }
                                         }
                                         .onLongPressGesture {
-                                            // Trigger delete dialog
                                             let generator = UIImpactFeedbackGenerator(style: .medium)
                                             generator.impactOccurred()
                                             stickerToDelete = sticker
@@ -197,7 +195,10 @@ struct MainView: View {
             }
             .navigationTitle("R2 Draw")
             .navigationBarTitleDisplayMode(.inline)
+            
+            // MARK: - Toolbar Items
             .toolbar {
+                // Leading: User Profile Switcher
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
                         showUserSwitcher = true
@@ -205,81 +206,55 @@ struct MainView: View {
                         UserAvatarView(imageData: user.profileImageData, name: user.name, size: 32)
                     }
                 }
+                
+                // Trailing Group: Font Picker + Printer Status
+                ToolbarItem(placement: .topBarTrailing) {
+                    HStack(spacing: 16) {
+                        // Font Picker
+                        Button {
+                            showFontPicker = true
+                        } label: {
+                            Image(systemName: "textformat")
+                                .font(.footnote)
+                                .bold()
+                                .foregroundStyle(.secondary)
+                                .padding(6)
+                                .background(Color(.secondarySystemBackground))
+                                .clipShape(Circle())
+                        }
+                        
+                        // Printer Status
+                        Button {
+                            showPrinterSheet = true
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: printerIcon)
+                                if case .connected = printerService.state {
+                                    Circle()
+                                        .fill(Color.green)
+                                        .frame(width: 6, height: 6)
+                                }
+                            }
+                            .font(.headline)
+                            .foregroundStyle(printerColor)
+                        }
+                    }
+                }
             }
         }
         // MARK: - Lifecycle
         .onAppear {
-            // Start scanning for the printer immediately
             printerService.startScanning()
         }
-        // MARK: - User Switcher Sheet
+        // MARK: - Sheets
         .sheet(isPresented: $showUserSwitcher) {
-            VStack(spacing: 20) {
-                Capsule()
-                    .fill(Color.gray.opacity(0.3))
-                    .frame(width: 40, height: 5)
-                    .padding(.top)
-                
-                Text("Switch Dreamer")
-                    .font(.headline)
-                    .padding(.bottom, 10)
-                
-                ScrollView {
-                    VStack(spacing: 16) {
-                        ForEach(allUsers) { otherUser in
-                            Button {
-                                showUserSwitcher = false
-                                // Small delay to allow sheet to dismiss smoothly
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                    onSwitchUser(otherUser)
-                                }
-                            } label: {
-                                HStack {
-                                    UserAvatarView(imageData: otherUser.profileImageData, name: otherUser.name, size: 50)
-                                    
-                                    Text(otherUser.name)
-                                        .font(.title3)
-                                        .bold()
-                                        .foregroundStyle(.primary)
-                                    
-                                    Spacer()
-                                    
-                                    if otherUser.id == user.id {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundStyle(.blue)
-                                    }
-                                }
-                                .padding()
-                                .background(Color(.secondarySystemBackground))
-                                .cornerRadius(16)
-                            }
-                        }
-                        
-                        // "Add New" Button
-                        Button {
-                            showUserSwitcher = false
-                            // Passing an empty user acts as a signal to the App to show Onboarding
-                            onSwitchUser(User(name: "", profileImageData: nil))
-                        } label: {
-                            HStack {
-                                Circle()
-                                    .fill(Color(.tertiarySystemFill))
-                                    .frame(width: 50, height: 50)
-                                    .overlay(Image(systemName: "plus"))
-                                
-                                Text("Add New Dreamer")
-                                    .foregroundStyle(.primary)
-                                Spacer()
-                            }
-                            .padding()
-                        }
-                    }
-                    .padding(.horizontal)
-                    .padding(.bottom, 50)
-                }
-            }
-            .presentationDetents([.fraction(0.4), .medium])
-            .presentationDragIndicator(.visible)
+            userSwitcherSheet
+        }
+        .sheet(isPresented: $showPrinterSheet) {
+            PrinterConnectionSheet(service: printerService)
+        }
+        .sheet(isPresented: $showFontPicker) {
+            FontPickerSheet(user: user)
         }
         // MARK: - Delete Dialog
         .confirmationDialog(
@@ -293,7 +268,6 @@ struct MainView: View {
             Button("Delete", role: .destructive) {
                 if let sticker = stickerToDelete {
                     withAnimation {
-                        // Clear canvas if deleting the currently viewed image
                         if currentImage == sticker.uiImage {
                             currentImage = nil
                             lastPrompt = ""
@@ -309,9 +283,90 @@ struct MainView: View {
         }
     }
     
-    // MARK: - Helper Logic
+    // MARK: - Helper Views & Logic
     
-    /// Filters the main query to show only THIS user's stickers
+    // User Switcher Content (Extracted to keep body clean)
+    var userSwitcherSheet: some View {
+        VStack(spacing: 20) {
+            Capsule()
+                .fill(Color.gray.opacity(0.3))
+                .frame(width: 40, height: 5)
+                .padding(.top)
+            
+            Text("Switch Dreamer")
+                .font(.headline)
+                .padding(.bottom, 10)
+            
+            ScrollView {
+                VStack(spacing: 16) {
+                    ForEach(allUsers) { otherUser in
+                        Button {
+                            showUserSwitcher = false
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                onSwitchUser(otherUser)
+                            }
+                        } label: {
+                            HStack {
+                                UserAvatarView(imageData: otherUser.profileImageData, name: otherUser.name, size: 50)
+                                Text(otherUser.name)
+                                    .font(.title3)
+                                    .bold()
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                if otherUser.id == user.id {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(.blue)
+                                }
+                            }
+                            .padding()
+                            .background(Color(.secondarySystemBackground))
+                            .cornerRadius(16)
+                        }
+                    }
+                    
+                    Button {
+                        showUserSwitcher = false
+                        onSwitchUser(User(name: "", profileImageData: nil))
+                    } label: {
+                        HStack {
+                            Circle()
+                                .fill(Color(.tertiarySystemFill))
+                                .frame(width: 50, height: 50)
+                                .overlay(Image(systemName: "plus"))
+                            Text("Add New Dreamer")
+                                .foregroundStyle(.primary)
+                            Spacer()
+                        }
+                        .padding()
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 50)
+            }
+        }
+        .presentationDetents([.fraction(0.4), .medium])
+        .presentationDragIndicator(.visible)
+    }
+    
+    // Printer UI Helpers
+    var printerIcon: String {
+        switch printerService.state {
+        case .connected: return "printer.fill"
+        case .bluetoothOff: return "bluetooth.slash"
+        case .error: return "exclamationmark.triangle.fill"
+        default: return "printer"
+        }
+    }
+    
+    var printerColor: Color {
+        switch printerService.state {
+        case .connected: return .blue
+        case .bluetoothOff, .error: return .red
+        default: return .gray
+        }
+    }
+    
+    // Logic Helpers
     var userStickers: [Sticker] {
         allStickers.filter { $0.creator?.id == user.id }
     }
@@ -338,8 +393,9 @@ struct MainView: View {
     func generateImage(prompt: String) {
         isGenerating = true
         
-        // Capture simple string for thread safety
+        // Capture simple strings for thread safety (Swift 6)
         let watermarkName = user.name
+        let fontName = user.fontName
         
         Task {
             do {
@@ -349,7 +405,7 @@ struct MainView: View {
                     
                     // Heavy processing on background thread
                     let finalImage = await Task.detached(priority: .userInitiated) {
-                        return ImageProcessor.process(image: rawImage, watermarkText: watermarkName)
+                        return ImageProcessor.process(image: rawImage, watermarkText: watermarkName, fontName: fontName)
                     }.value
                     
                     guard let processedImage = finalImage,

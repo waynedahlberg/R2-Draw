@@ -17,6 +17,9 @@ final class User {
     @Attribute(.externalStorage) var profileImageData: Data? // Store bulky images externally if needed
     var createdAt: Date
     
+    // Store custom font name, defaulting to San Francisco
+    var fontName: String = "SF Pro Rounded"
+    
     // Relationship: One User has Many Stickers
     // DeleteRule .cascade means if we delete the User, their stickers go too.
     @Relationship(deleteRule: .cascade, inverse: \Sticker.creator)
@@ -27,6 +30,7 @@ final class User {
         self.name = name
         self.profileImageData = profileImageData
         self.createdAt = Date()
+        self.fontName = "SF Pro Rounded"    // Default
         self.stickers = []
     }
 }

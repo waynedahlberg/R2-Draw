@@ -7,16 +7,16 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		B061375B2EEB60DE00F837AC /* r2draw.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = r2draw.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B061375B2EEB60DE00F837AC /* magicprinter.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = magicprinter.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		B061378A2EEB619D00F837AC /* Exceptions for "magicprinter" folder in "r2draw" target */ = {
+		B061378A2EEB619D00F837AC /* Exceptions for "magicprinter" folder in "magicprinter" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
-			target = B061375A2EEB60DE00F837AC /* r2draw */;
+			target = B061375A2EEB60DE00F837AC /* magicprinter */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -24,7 +24,7 @@
 		B061375D2EEB60DE00F837AC /* magicprinter */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				B061378A2EEB619D00F837AC /* Exceptions for "magicprinter" folder in "r2draw" target */,
+				B061378A2EEB619D00F837AC /* Exceptions for "magicprinter" folder in "magicprinter" target */,
 			);
 			path = magicprinter;
 			sourceTree = "<group>";
@@ -53,7 +53,7 @@
 		B061375C2EEB60DE00F837AC /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				B061375B2EEB60DE00F837AC /* r2draw.app */,
+				B061375B2EEB60DE00F837AC /* magicprinter.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -61,9 +61,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		B061375A2EEB60DE00F837AC /* r2draw */ = {
+		B061375A2EEB60DE00F837AC /* magicprinter */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = B06137682EEB60DF00F837AC /* Build configuration list for PBXNativeTarget "r2draw" */;
+			buildConfigurationList = B06137682EEB60DF00F837AC /* Build configuration list for PBXNativeTarget "magicprinter" */;
 			buildPhases = (
 				B06137572EEB60DE00F837AC /* Sources */,
 				B06137582EEB60DE00F837AC /* Frameworks */,
@@ -76,11 +76,11 @@
 			fileSystemSynchronizedGroups = (
 				B061375D2EEB60DE00F837AC /* magicprinter */,
 			);
-			name = r2draw;
+			name = magicprinter;
 			packageProductDependencies = (
 			);
 			productName = r2draw;
-			productReference = B061375B2EEB60DE00F837AC /* r2draw.app */;
+			productReference = B061375B2EEB60DE00F837AC /* magicprinter.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -112,7 +112,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				B061375A2EEB60DE00F837AC /* r2draw */,
+				B061375A2EEB60DE00F837AC /* magicprinter */,
 			);
 		};
 /* End PBXProject section */
@@ -267,7 +267,12 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = r2draw/Info.plist;
+				INFOPLIST_FILE = magicprinter/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Magic Printer";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Connect to Thermal Printer";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "We need the microphone to hear your creative ideas!";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "We need access to save your creations to the Photos app.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "We use speech recognition to turn your voice into your creations.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -283,7 +288,7 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.7;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.waynedahlberg.r2draw;
+				PRODUCT_BUNDLE_IDENTIFIER = com.waynedahlberg.magicprinter.v2;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
@@ -312,7 +317,12 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = r2draw/Info.plist;
+				INFOPLIST_FILE = magicprinter/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Magic Printer";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Connect to Thermal Printer";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "We need the microphone to hear your creative ideas!";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "We need access to save your creations to the Photos app.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "We use speech recognition to turn your voice into your creations.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -328,7 +338,7 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.7;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.waynedahlberg.r2draw;
+				PRODUCT_BUNDLE_IDENTIFIER = com.waynedahlberg.magicprinter.v2;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
@@ -356,7 +366,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		B06137682EEB60DF00F837AC /* Build configuration list for PBXNativeTarget "r2draw" */ = {
+		B06137682EEB60DF00F837AC /* Build configuration list for PBXNativeTarget "magicprinter" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				B06137692EEB60DF00F837AC /* Debug */,

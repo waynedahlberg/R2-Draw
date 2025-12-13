@@ -9,9 +9,10 @@ import SwiftUI
 import SwiftData
 
 @main
-struct magicprinterApp: App {
-    // MARK: - App-Level State (Singletons for this app instance)
-    // These initialize ONCE and stay alive for the session.
+struct magicprinter: App {
+    // 1. Initialize Services (Idle state)
+    // These objects exist, but their heavy initialization logic (scanning/recording)
+    // is NOT running yet.
     @State private var speechRecognizer = SpeechRecognizer()
     @State private var printerService = PrinterService()
     
@@ -23,35 +24,45 @@ struct magicprinterApp: App {
         } catch { fatalError("Could not create ModelContainer: \(error)") }
     }()
 
+    // We track the logged-in user here
     @State private var currentUser: User?
 
     var body: some Scene {
         WindowGroup {
             Group {
                 if let user = currentUser {
-                    // Inject the pre-warmed services
+                    // A. THE MAIN APP
+                    // We only reach here after the wizard is complete.
                     MainView(
                         user: user,
-                        onSwitchUser: { handleUserSwitch($0) },
+                        onSwitchUser: { selectedUser in
+                            handleUserSwitch(selectedUser)
+                        },
                         speechRecognizer: speechRecognizer,
                         printerService: printerService
                     )
                     .transition(.opacity)
-                } else {
-                    OnboardingView { selectedUser in
-                        withAnimation {
-                            currentUser = selectedUser
-                        }
+                    .onAppear {
+                        // RE-START services when returning to main view
+                        // (e.g. if we switched users)
+                        print("Main View Active: Resuming services.")
+                        speechRecognizer.prepare()
+                        printerService.startScanning()
                     }
+                } else {
+                    // B. THE WIZARD FLOW
+                    // We pass the idle services down. The Wizard will start them one by one.
+                    OnboardingContainerView(
+                        speechRecognizer: speechRecognizer,
+                        printerService: printerService,
+                        onComplete: { newUser in
+                            // Wizard finished! Switch to Main View.
+                            withAnimation {
+                                currentUser = newUser
+                            }
+                        }
+                    )
                 }
-            }
-            // MARK: - App Warmup
-            .task {
-                // Background warmup when app launches
-                speechRecognizer.prepare()
-                
-                // Optional: Start bluetooth scanning immediately
-                // printerService.startScanning()
             }
         }
         .modelContainer(sharedModelContainer)
@@ -59,7 +70,9 @@ struct magicprinterApp: App {
     
     func handleUserSwitch(_ selectedUser: User) {
         if selectedUser.name.isEmpty {
-            // Signal to go back to Onboarding/Creation
+            // Logic for "Add New User" -> Go back to onboarding
+            // Note: In a polished app, you might want a simpler flow for 2nd users,
+            // but going back to onboarding ensures permissions are re-checked safely.
             currentUser = nil
         } else {
             currentUser = selectedUser

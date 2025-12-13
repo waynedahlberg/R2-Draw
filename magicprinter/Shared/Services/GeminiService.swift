@@ -34,10 +34,10 @@ final class GeminiService {
                 
                 CRITICAL COMPOSITION RULES:
                 1. NO BORDERS: Do not draw any square frames, margins, or borders around the image. The artwork must extend all the way to the edges of the canvas.
-                2. DETAILED BACKGROUND: Do not leave the background empty. Fill the entire scene with intricate, interesting environmental details suitable for coloring (e.g., trees, clouds, patterns, buildings, stars, textures).
-                3. STYLE: Clean, crisp, uniform black lines on a white background. No shading, no greyscale, no sketchiness.
+                2. DETAILED BACKGROUND: Do not leave the background empty. Fill the entire scene with interesting but not too delicate environmental details suitable for coloring. Use elements that are suitable for the subject.
+                3. STYLE: Clean, crisp, uniform black line-art on a white background. No shading, no greyscale, no sketchiness.
                 
-                The image should be highly detailed and immersive, giving the child many small shapes and textures to color in every part of the page.
+                The image should be semi-detailed and immersive, giving the child many small (but not too small) shapes and textures to color in every part of the page.
                 """
         
         // 2. JSON Body

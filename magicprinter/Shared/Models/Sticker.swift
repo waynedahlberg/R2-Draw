@@ -7,35 +7,35 @@
 
 import Foundation
 import SwiftData
-import SwiftUI
+import UIKit
 
-// MARK: - Sticker Model
 @Model
 final class Sticker {
     var id: UUID
     var prompt: String
-    @Attribute(.externalStorage) var imageData: Data?
-    var dateCreated: Date
-    var isFavorite: Bool
     
-    // Relationship: A sticker belongs to one User
-    var creator: User?
+    // CHANGE: Add @Attribute(.externalStorage)
+    // This tells SwiftData: "Save this big blob to a file, not the DB row."
+    // It will now only load into RAM when you actually access 'imageData'.
+    @Attribute(.externalStorage) var imageData: Data?
+    
+    var dateCreated: Date
+    
+    @Relationship var creator: User?
     
     init(prompt: String, imageData: Data, creator: User) {
         self.id = UUID()
         self.prompt = prompt
         self.imageData = imageData
         self.dateCreated = Date()
-        self.isFavorite = false
         self.creator = creator
     }
-}
-
-// MARK: - Sticker Helpers
-extension Sticker {
-    /// Helper to get the UIImage easily for sharing/printing
-    var uiImage: UIImage? {
-        guard let data = imageData else { return nil }
-        return UIImage(data: data)
+    
+    // Computed property for easy UI access
+    @Transient var uiImage: UIImage? {
+        if let data = imageData {
+            return UIImage(data: data)
+        }
+        return nil
     }
 }

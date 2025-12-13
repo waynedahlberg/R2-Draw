@@ -8,37 +8,22 @@
 import SwiftUI
 
 struct UserAvatarView: View {
-    // CHANGE: Accept UIImage directly (already decoded)
-    let uiImage: UIImage?
+    let imageData: Data?
     let name: String
     let size: CGFloat
     
-    // Convenience init for raw data (only used in lists where it doesn't change often)
-    init(imageData: Data?, name: String, size: CGFloat) {
-        if let data = imageData {
-            self.uiImage = UIImage(data: data)
-        } else {
-            self.uiImage = nil
-        }
-        self.name = name
-        self.size = size
-    }
-    
-    // Convenience init for when we already have the image (Optimized)
-    init(uiImage: UIImage?, name: String, size: CGFloat) {
-        self.uiImage = uiImage
-        self.name = name
-        self.size = size
-    }
+    @State private var decodedImage: UIImage?
+    @State private var isLoading = true
     
     var body: some View {
         ZStack {
-            if let uiImage {
-                Image(uiImage: uiImage)
+            if let decodedImage {
+                Image(uiImage: decodedImage)
                     .resizable()
                     .scaledToFill()
                     .frame(width: size, height: size)
                     .clipShape(Circle())
+                    .transition(.opacity.animation(.easeOut(duration: 0.2)))
             } else {
                 Circle()
                     .fill(Color.orange.gradient)
@@ -54,5 +39,20 @@ struct UserAvatarView: View {
                 .frame(width: size, height: size)
                 .shadow(radius: 2)
         }
+        // This ensures decoding happens in the background automatically
+        .task(id: imageData) {
+            if let data = imageData {
+                let image = await decodeInBackground(data: data)
+                self.decodedImage = image
+            }
+            self.isLoading = false
+        }
+    }
+    
+    // Helper to decode safely off the main thread
+    nonisolated func decodeInBackground(data: Data) async -> UIImage? {
+        return await Task.detached(priority: .userInitiated) {
+            return UIImage(data: data)
+        }.value
     }
 }

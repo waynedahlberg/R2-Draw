@@ -118,4 +118,22 @@ final class SpeechRecognizer {
             self.state = .idle
         }
     }
+    
+    func requestAuthorization() {
+            SFSpeechRecognizer.requestAuthorization { authStatus in
+                // We don't need to do anything here strictly speaking,
+                // the OS Alert handles the user interaction.
+                // But we could update a published property if we wanted to show UI state.
+                OperationQueue.main.addOperation {
+                    switch authStatus {
+                    case .authorized:
+                        print("Speech authorization granted")
+                    case .denied, .restricted, .notDetermined:
+                        print("Speech authorization denied/unknown")
+                    @unknown default:
+                        break
+                    }
+                }
+            }
+        }
 }

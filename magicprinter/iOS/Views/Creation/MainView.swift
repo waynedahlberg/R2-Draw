@@ -11,18 +11,16 @@ import SwiftData
 struct MainView: View {
     @Environment(\.modelContext) private var modelContext
     
-    // MARK: - Data & Config
+    // MARK: - Data
     let user: User
     var onSwitchUser: (User) -> Void
     
     @Query(sort: \User.createdAt, order: .reverse) private var allUsers: [User]
-    @Query(sort: \Sticker.dateCreated, order: .reverse) private var allStickers: [Sticker]
+    // Note: We do NOT query stickers here to prevent blocking. The Gallery strip handles it.
     
-    // MARK: - Services (Injected)
-    // We observe these objects which are passed down from the App
+    // MARK: - Services
     @Bindable var speechRecognizer: SpeechRecognizer
     @Bindable var printerService: PrinterService
-    
     private let geminiService = GeminiService()
     
     // MARK: - Local State
@@ -32,7 +30,7 @@ struct MainView: View {
     @State private var lastPrompt: String = ""
     @State private var errorMessage: String?
     
-    // Sheets & Alerts
+    // Sheets
     @State private var showUserSwitcher = false
     @State private var showPrinterSheet = false
     @State private var showFontPicker = false
@@ -42,201 +40,77 @@ struct MainView: View {
         NavigationStack {
             VStack(spacing: 20) {
                 
-                // MARK: 1. Canvas / Preview Area
-                ZStack(alignment: .bottomTrailing) {
-                    
-                    // Background Card
-                    RoundedRectangle(cornerRadius: 24)
-                        .fill(Color(.secondarySystemBackground))
-                        .shadow(color: .black.opacity(0.05), radius: 10)
-                    
-                    // State: Image Loaded
-                    if let currentImage {
-                        Image(uiImage: currentImage)
-                            .resizable()
-                            .scaledToFit()
-                            .clipShape(RoundedRectangle(cornerRadius: 24))
-                            .padding(8) // Inset to show the "card" edge
-                        
-                        // Floating Print Button
-                        Button {
-                            printerService.printImage(currentImage)
-                        } label: {
-                            Image(systemName: "printer.fill")
-                                .font(.title)
-                                .foregroundStyle(.white)
-                                .frame(width: 60, height: 60)
-                                .background(Color.blue)
-                                .clipShape(Circle())
-                                .shadow(radius: 4, y: 2)
+                // 1. Canvas
+                CanvasView(
+                    currentImage: currentImage,
+                    isGenerating: isGenerating,
+                    onPrint: {
+                        if let img = currentImage {
+                            printerService.printImage(img)
                         }
-                        .padding(20)
                     }
-                    // State: Loading
-                    else if isGenerating {
-                        VStack {
-                            ProgressView().scaleEffect(2)
-                            Text("Dreaming...")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .padding(.top)
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    }
-                    // State: Empty / Placeholder
-                    else {
-                        VStack(spacing: 12) {
-                            Image(systemName: "photo.badge.plus")
-                                .font(.system(size: 50))
-                                .foregroundStyle(.tertiary)
-                            Text("Press the mic to dream!")
-                                .foregroundStyle(.secondary)
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    }
-                }
-                // Force 2:3 Aspect Ratio (4x6 Sticker format)
-                .aspectRatio(2.0/3.0, contentMode: .fit)
+                )
                 .padding(.horizontal)
                 .padding(.top)
                 
-                // MARK: 2. Transcript Display
-                Text(isRecording ? speechRecognizer.transcript : lastPrompt)
-                    .font(.title2)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(3)
-                    .frame(height: 80)
-                    .padding(.horizontal)
-                    .animation(.default, value: speechRecognizer.transcript)
+                // 2. Transcript
+                TranscriptView(
+                    text: isRecording ? speechRecognizer.transcript : lastPrompt,
+                    isRecording: isRecording
+                )
                 
                 Spacer()
                 
-                // MARK: 3. The Big Mic Button
-                Button {
-                    // Action handled by DragGesture below
-                } label: {
-                    ZStack {
-                        // Pulse Effect Background
-                        if isRecording {
-                            Circle()
-                                .fill(Color.red.opacity(0.3))
-                                .frame(width: 100, height: 100)
-                                .scaleEffect(1.2)
-                                .transition(.opacity)
-                        }
-                        
-                        // Main Button Circle
-                        // Gray out if not ready (warming up)
-                        Circle()
-                            .fill(isRecording ? Color.red : (speechRecognizer.isReady ? Color.blue : Color.gray))
-                            .frame(width: 80, height: 80)
-                            .shadow(radius: 4, y: 2)
-                        
-                        // Icon
-                        Image(systemName: isRecording ? "waveform" : "mic.fill")
-                            .font(.largeTitle)
-                            .foregroundStyle(.white)
-                            .scaleEffect(isRecording ? 1.2 : 1.0)
-                            .opacity(speechRecognizer.isReady ? 1.0 : 0.5)
-                            .animation(.spring(response: 0.3, dampingFraction: 0.5), value: isRecording)
-                    }
-                }
-                .simultaneousGesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { _ in
-                            if !isRecording && !isGenerating && speechRecognizer.isReady {
-                                startRecording()
-                            }
-                        }
-                        .onEnded { _ in
-                            if isRecording {
-                                stopRecordingAndGenerate()
-                            }
-                        }
+                // 3. Controls
+                RecordControlView(
+                    isRecording: isRecording,
+                    isReady: speechRecognizer.isReady,
+                    isGenerating: isGenerating,
+                    onStartRecording: startRecording,
+                    onStopRecording: stopRecordingAndGenerate
                 )
-                // Disable if generating OR if services aren't ready
-                .disabled(isGenerating || !speechRecognizer.isReady)
                 
-                // Status Text
-                Text(statusText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.bottom, 10)
-                
-                // MARK: 4. Recent Stickers Gallery
-                if !userStickers.isEmpty {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 12) {
-                            ForEach(userStickers) { sticker in
-                                if let uiImage = sticker.uiImage {
-                                    Image(uiImage: uiImage)
-                                        .resizable()
-                                        .scaledToFit()
-                                        // 2:3 Thumbnail Ratio (80w x 120h)
-                                        .frame(width: 80, height: 120)
-                                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 12)
-                                                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                                        )
-                                        .onTapGesture {
-                                            withAnimation {
-                                                self.currentImage = uiImage
-                                                self.lastPrompt = sticker.prompt
-                                            }
-                                        }
-                                        .onLongPressGesture {
-                                            let generator = UIImpactFeedbackGenerator(style: .medium)
-                                            generator.impactOccurred()
-                                            stickerToDelete = sticker
-                                        }
-                                }
-                            }
+                // 4. Gallery (Lazy Loaded)
+                StickerGalleryStrip(
+                    userId: user.id,
+                    onSelect: { sticker in
+                        withAnimation {
+                            currentImage = sticker.uiImage
+                            lastPrompt = sticker.prompt
                         }
-                        .padding(.horizontal)
+                    },
+                    onDelete: { sticker in
+                        stickerToDelete = sticker
                     }
-                    .frame(height: 130)
-                    .padding(.bottom)
-                }
+                )
             }
-            .navigationTitle("R2 Draw")
+            .navigationTitle("Magic Printer")
             .navigationBarTitleDisplayMode(.inline)
             
             // MARK: - Toolbar
             .toolbar {
-                // Leading: User Switcher
                 ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        showUserSwitcher = true
-                    } label: {
+                    Button { showUserSwitcher = true } label: {
                         UserAvatarView(imageData: user.profileImageData, name: user.name, size: 32)
                     }
                 }
                 
-                // Trailing: Font & Printer
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 16) {
-                        Button {
-                            showFontPicker = true
-                        } label: {
+                        Button { showFontPicker = true } label: {
                             Image(systemName: "textformat")
-                                .font(.footnote)
-                                .bold()
+                                .font(.footnote).bold()
                                 .foregroundStyle(.secondary)
                                 .padding(6)
                                 .background(Color(.secondarySystemBackground))
                                 .clipShape(Circle())
                         }
                         
-                        Button {
-                            showPrinterSheet = true
-                        } label: {
+                        Button { showPrinterSheet = true } label: {
                             HStack(spacing: 4) {
                                 Image(systemName: printerIcon)
                                 if case .connected = printerService.state {
-                                    Circle()
-                                        .fill(Color.green)
-                                        .frame(width: 6, height: 6)
+                                    Circle().fill(Color.green).frame(width: 6, height: 6)
                                 }
                             }
                             .font(.headline)
@@ -245,118 +119,33 @@ struct MainView: View {
                     }
                 }
             }
+            // MARK: - Sheets
+            .sheet(isPresented: $showUserSwitcher) {
+                UserSwitcherSheet(
+                    users: allUsers,
+                    currentUser: user,
+                    onSwitch: { selectedUser in
+                        showUserSwitcher = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            onSwitchUser(selectedUser)
+                        }
+                    }
+                )
+            }
+            .sheet(isPresented: $showPrinterSheet) { PrinterConnectionSheet(service: printerService) }
+            .sheet(isPresented: $showFontPicker) { FontPickerSheet(user: user) }
+            .confirmationDialog("Delete this sticker?", isPresented: Binding(get: { stickerToDelete != nil }, set: { if !$0 { stickerToDelete = nil } }), titleVisibility: .visible) {
+                Button("Delete", role: .destructive) { deleteSticker() }
+                Button("Cancel", role: .cancel) { stickerToDelete = nil }
+            }
         }
-        // MARK: - Lifecycle
         .onAppear {
-            // Service is already warm from App level, but we ensure scanning is active if needed
+            // Re-enable service scanning
             printerService.startScanning()
         }
-        // MARK: - Sheets
-        .sheet(isPresented: $showUserSwitcher) {
-            userSwitcherSheet
-        }
-        .sheet(isPresented: $showPrinterSheet) {
-            PrinterConnectionSheet(service: printerService)
-        }
-        .sheet(isPresented: $showFontPicker) {
-            FontPickerSheet(user: user)
-        }
-        // MARK: - Delete Dialog
-        .confirmationDialog(
-            "Delete this sticker?",
-            isPresented: Binding(
-                get: { stickerToDelete != nil },
-                set: { if !$0 { stickerToDelete = nil } }
-            ),
-            titleVisibility: .visible
-        ) {
-            Button("Delete", role: .destructive) {
-                if let sticker = stickerToDelete {
-                    withAnimation {
-                        if currentImage == sticker.uiImage {
-                            currentImage = nil
-                            lastPrompt = ""
-                        }
-                        modelContext.delete(sticker)
-                    }
-                }
-                stickerToDelete = nil
-            }
-            Button("Cancel", role: .cancel) {
-                stickerToDelete = nil
-            }
-        }
     }
     
-    // MARK: - Helper Views & Logic
-    
-    var userSwitcherSheet: some View {
-        VStack(spacing: 20) {
-            Capsule()
-                .fill(Color.gray.opacity(0.3))
-                .frame(width: 40, height: 5)
-                .padding(.top)
-            
-            Text("Switch Dreamer")
-                .font(.headline)
-                .padding(.bottom, 10)
-            
-            ScrollView {
-                VStack(spacing: 16) {
-                    ForEach(allUsers) { otherUser in
-                        Button {
-                            showUserSwitcher = false
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                onSwitchUser(otherUser)
-                            }
-                        } label: {
-                            HStack {
-                                UserAvatarView(imageData: otherUser.profileImageData, name: otherUser.name, size: 50)
-                                Text(otherUser.name)
-                                    .font(.title3)
-                                    .bold()
-                                    .foregroundStyle(.primary)
-                                Spacer()
-                                if otherUser.id == user.id {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundStyle(.blue)
-                                }
-                            }
-                            .padding()
-                            .background(Color(.secondarySystemBackground))
-                            .cornerRadius(16)
-                        }
-                    }
-                    
-                    Button {
-                        showUserSwitcher = false
-                        onSwitchUser(User(name: "", profileImageData: nil))
-                    } label: {
-                        HStack {
-                            Circle()
-                                .fill(Color(.tertiarySystemFill))
-                                .frame(width: 50, height: 50)
-                                .overlay(Image(systemName: "plus"))
-                            Text("Add New Dreamer")
-                                .foregroundStyle(.primary)
-                            Spacer()
-                        }
-                        .padding()
-                    }
-                }
-                .padding(.horizontal)
-                .padding(.bottom, 50)
-            }
-        }
-        .presentationDetents([.fraction(0.4), .medium])
-        .presentationDragIndicator(.visible)
-    }
-    
-    var statusText: String {
-        if isRecording { return "Listening..." }
-        if !speechRecognizer.isReady { return "Warming up..." }
-        return "Hold to speak"
-    }
+    // MARK: - Helpers
     
     var printerIcon: String {
         switch printerService.state {
@@ -375,9 +164,7 @@ struct MainView: View {
         }
     }
     
-    var userStickers: [Sticker] {
-        allStickers.filter { $0.creator?.id == user.id }
-    }
+    // MARK: - Actions
     
     func startRecording() {
         withAnimation {
@@ -409,7 +196,8 @@ struct MainView: View {
                 
                 if let rawImage = UIImage(data: rawData) {
                     
-                    let finalImage = await Task.detached(priority: .userInitiated) {
+                    // Heavy processing on background
+                    let finalImage = await Task.detached(priority: .userInitiated) { () -> UIImage? in
                         return ImageProcessor.process(image: rawImage, watermarkText: watermarkName, fontName: fontName)
                     }.value
                     
@@ -437,5 +225,17 @@ struct MainView: View {
     func saveSticker(prompt: String, data: Data) {
         let sticker = Sticker(prompt: prompt, imageData: data, creator: user)
         modelContext.insert(sticker)
+    }
+    
+    func deleteSticker() {
+        guard let sticker = stickerToDelete else { return }
+        withAnimation {
+            if currentImage == sticker.uiImage {
+                currentImage = nil
+                lastPrompt = ""
+            }
+            modelContext.delete(sticker)
+        }
+        stickerToDelete = nil
     }
 }

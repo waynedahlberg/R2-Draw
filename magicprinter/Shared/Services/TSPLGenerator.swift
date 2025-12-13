@@ -17,7 +17,6 @@ struct TSPLGenerator {
         // PM-241-BT is usually 203 DPI. 4 inches * 203 = ~812 dots wide
         let widthBytes = 100    // 800 dots / 8 bits = 100 bytes wide
         let pixelWidth = 800
-        let pixelHeight = 1200  // 6 inches long
         
         // TSPL Setup commands
         // CLS: Clear buffer
